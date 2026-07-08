@@ -1,0 +1,6 @@
+{
+  "name": "model-cap",
+  "version": "1.0.0",
+  "description": "Lets Claude Code users set a cost/capability ceiling on which model subagents use, with a routing heuristic that picks the right tier per task automatically.",
+  "author": "harshrathod0585"
+}
