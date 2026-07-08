@@ -1,12 +1,12 @@
-# model-cap
+# auto-gear
 
 A Claude Code skill that lets you set a ceiling on which Claude model gets used for subagent work, and routes tasks to the right tier automatically (cheap models for simple lookups, stronger models for hard problems) — never exceeding your configured cap.
 
 ## Install
 
 ```
-/plugin marketplace add harshrathod0585/model-cap
-/plugin install model-cap
+/plugin marketplace add harshrathod0585/auto-gear
+/plugin install auto-gear
 ```
 
 ## Usage

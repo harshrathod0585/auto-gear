@@ -1,9 +1,9 @@
 ---
-name: Model Cap
-description: Use when about to dispatch a subagent (Agent tool call) and need to pick which model to run it on, or when the user asks to set/change/view their model spending cap or preferred max model. Also use at the start of a session if no cap has ever been configured, to do first-run setup. Triggers on phrases like "set model cap", "change my max model", "what's my model policy", "don't use opus", "cap the model", or any request to control which Claude model gets used for tasks.
+name: Auto Gear
+description: Use when about to dispatch a subagent (Agent tool call) and need to pick which model to run it on, or when the user asks to set/change/view their model spending cap or preferred max model. Also use at the start of a session if no cap has ever been configured, to do first-run setup. Triggers on phrases like "set model cap", "change my max model", "what's my model policy", "don't use opus", "cap the model", "auto gear", or any request to control which Claude model gets used for tasks.
 ---
 
-## Model Cap
+## Auto Gear
 
 Lets the user set a ceiling on which Claude model gets used for subagent work, and gives a routing heuristic so the ceiling is respected automatically instead of the assistant picking models by feel.
 
