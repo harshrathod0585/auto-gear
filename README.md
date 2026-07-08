@@ -11,9 +11,10 @@ A Claude Code skill that lets you set a ceiling on which Claude model gets used 
 
 ## Usage
 
-Say "set model cap" (or similar) to configure your ceiling. Claude will ask which model tier and reasoning-effort level you want as the max, then save it to `~/.claude/model-policy.json`. From then on, whenever Claude dispatches a subagent, it classifies the task's difficulty and picks the cheapest model tier that can handle it — clamped to your cap.
+This plugin ships two skills:
 
-Rerun the setup phrase anytime to change your mind.
+- **`auto-gear:set`** — configures your cap. Say "set model cap" (or similar). Claude asks which model tier and reasoning-effort level you want as the max, then saves it to `~/.claude/model-policy.json`. Rerun anytime to change your mind.
+- **`auto-gear`** — routes subagent dispatch. Whenever Claude spawns a subagent via the Agent tool, it classifies the task's difficulty and picks the cheapest model tier that can handle it — clamped to your saved cap.
 
 ## Why
 
