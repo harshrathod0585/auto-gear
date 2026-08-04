@@ -1,0 +1,2 @@
+description = "Set or change your subagent model cap and effort ceilings"
+prompt = "Use the auto-gear-set skill to configure the subagent model cap. {{args}}"

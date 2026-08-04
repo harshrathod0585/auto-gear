@@ -1,0 +1,2 @@
+description = "Ask which model tier a task should route to (and why)"
+prompt = "Using the auto-gear skill, decide which model tier this task should be dispatched on and why: {{args}}. Read the policy at ~/.claude/model-policy.json first, classify the task (cheapest / mid / top), apply the tie-break rules, clamp to the cap, and answer in at most three lines: chosen model + effort, the tier reason, and whether the cap lowered it."
