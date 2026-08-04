@@ -1,13 +1,14 @@
 {
   "name": "auto-gear",
   "owner": {
-    "name": "harshrathod0585"
+    "name": "harshrathod0585",
+    "url": "https://github.com/harshrathod0585"
   },
   "plugins": [
     {
       "name": "auto-gear",
       "source": "./",
-      "description": "Lets Claude Code users set a cost/capability ceiling on which model subagents use, with a routing heuristic that picks the right tier per task automatically."
+      "description": "Hard cap on which model your subagents may use, plus a routing rubric that sends each task to the cheapest tier that can do it."
     }
   ]
 }

@@ -1,46 +1,89 @@
 ---
-name: Auto Gear
-description: Use when about to dispatch a subagent (Agent tool call) and need to pick which model to run it on, respecting the user's configured model cap. Triggers whenever spawning an Agent-tool subagent for any task. For setting/changing/viewing the cap itself, use the sibling `auto-gear:set` skill instead.
+name: auto-gear
+description: >
+  Use before every Agent-tool subagent dispatch to pick which model tier the
+  subagent runs on, clamped to the user's configured cap. Triggers whenever
+  spawning a subagent for any task, and on "which model should this use",
+  "route this task", "auto-gear". For setting or changing the cap itself use
+  `auto-gear-set`; to view it use `auto-gear-status`.
 ---
 
-## Auto Gear
+# Auto Gear
 
-Routes subagent dispatch to the cheapest model tier that can handle the task, never exceeding the user's configured cap. This is the routing half of the auto-gear skill pair — for setup, see `auto-gear:set`.
+Pick the cheapest model tier that can do the task, never above the user's cap.
 
-**Why this exists:** a static model wastes money on trivial subagent tasks (haiku would do) and underperforms on hard ones (needs a stronger model). This skill makes model choice a policy the user controls, not a guess made silently.
+Running every subagent on the strongest model burns money on trivial work;
+running everything on the cheapest one fails the hard tasks and you pay twice.
+This makes the tier an explicit decision instead of a silent default.
 
-### Config file
+## Policy
 
-Reads policy from `~/.claude/model-policy.json` (written by `auto-gear:set`):
+`~/.claude/model-policy.json` (override: `$CLAUDE_CONFIG_DIR`, or
+`$AUTO_GEAR_POLICY` for the exact file):
 
 ```json
 {
-  "max_model": "sonnet-5",
-  "max_reasoning_effort_by_model": {
-    "haiku-4-5": null,
-    "sonnet-5": "high"
-  }
+  "version": 2,
+  "max_model": "sonnet",
+  "order": ["haiku", "sonnet", "opus"],
+  "max_effort": { "haiku": null, "sonnet": "high", "opus": "medium" },
+  "enforce": "clamp"
 }
 ```
 
-If this file doesn't exist yet, invoke the `auto-gear:set` skill to run first-run setup before routing anything.
+- `order` — weakest → strongest, using the exact strings the Agent tool's
+  `model` param accepts. Written at setup time from the `claude-api` skill, not
+  hardcoded, so a new model release doesn't need a plugin update.
+- `max_effort` — per-model ceiling. `null` = that model has no reasoning-effort
+  concept, so the param gets dropped rather than clamped.
+- `enforce` — `clamp` (rewrite silently, default), `warn` (prompt instead of
+  rewriting), `off` (advisory only).
 
-### Routing a task (applying the cap)
+No policy file → invoke `auto-gear-set` before dispatching anything.
 
-Before any `Agent` tool call, do this:
+## Routing
 
-1. Read `~/.claude/model-policy.json`. If missing, invoke `auto-gear:set` first.
-2. Classify the task about to be delegated:
-   - **cheapest-tier**: single lookup, listing files, simple formatting, mechanical find/replace, summarizing a short known file — no judgment calls.
-   - **mid-tier**: normal coding — implementing a feature, fixing a bug, writing tests, most everyday dev work.
-   - **top-tier**: deep multi-file architecture reasoning, ambiguous/underspecified problems, high-stakes correctness (security, data migration), or anything where getting it wrong is expensive to unwind.
-3. Pick the tier the task needs, then clamp it down to the user's `max_model` if it exceeds the cap — never clamp upward. Example: task needs the strongest model, cap is a mid-tier model → use the mid-tier model and mention to the user that the task may have benefited from a stronger model but was capped.
-4. Pass the resulting tier as the `model` param on the `Agent` call. Look up that tier's entry in `max_reasoning_effort_by_model` and clamp the reasoning-effort setting (for any subagent definition that exposes one) to that value — never clamp upward, and never borrow another model's cap.
+For each Agent call: classify the task, take the lowest tier that clears it,
+clamp to `max_model`, pass it as `model`.
 
-### Quick reference
+| Tier | Take it when the task is… | Examples |
+|---|---|---|
+| **cheapest** | mechanical, one right answer, verifiable by looking | list files matching a pattern, read a known file and summarize, rename a symbol in one file, format/lint fix, extract values from structured output |
+| **mid** | ordinary engineering — known shape, bounded scope, recoverable if wrong | implement a described feature, fix a reproduced bug, write tests for existing code, review a small diff, research across a handful of files |
+| **top** | ambiguous, cross-cutting, or expensive to get wrong | design and architecture decisions, underspecified problems needing judgment, security or auth changes, data migrations, concurrency, debugging with no reproduction, anything irreversible |
 
-Cap allows every model at or below the chosen tier, in the current strength ordering (weakest → strongest) determined at setup time via the `claude-api` skill — this ordering changes as Anthropic ships new models, so it is never hardcoded here.
+Tie-break rules, in order:
 
-### Note on "automatic" enforcement
+1. **Escalate on stakes, not on size.** A one-line change to auth is top tier;
+   a 400-line mechanical rename is cheapest.
+2. **Escalate on ambiguity.** If you can't state the success criterion in one
+   sentence, the subagent can't either — go up a tier.
+3. **Escalate on unverifiability.** If nothing downstream checks the output (no
+   test, no compile, no review), go up a tier. Cheap-tier work is safe largely
+   because its mistakes are visible.
+4. **Otherwise, go down.** Between two defensible tiers, take the cheaper one.
+   The clamp only protects the ceiling; the savings come from this rule.
+5. **Fan-out inherits per item, not per batch.** Ten independent lookups are ten
+   cheap-tier calls, not one top-tier call — classify the item, not the fan-out.
 
-This skill governs the assistant's choices when it dispatches subagents — it can't force a hard block the way a system permission would. For a guaranteed hard cap that can't be talked around, add a `PreToolUse` hook on the `Agent` tool (not included in this skill).
+Then set effort: look up the chosen model in `max_effort`. `null` → omit the
+param entirely. A value → never exceed it. Never borrow another model's ceiling.
+
+## Clamping
+
+Clamp downward only, never up. Cap `sonnet`, task needs `opus` → run `sonnet`
+**and tell the user in one line** that the task was capped and may want a manual
+top-tier run. A silent cap on a top-tier task is how a bad result gets trusted.
+
+An unrecognized model name counts as above the cap — an unknown name is more
+likely a new flagship than a new budget model.
+
+## Enforcement
+
+The `PreToolUse` hook rewrites any Agent call above the cap, including calls
+with no `model` at all (which would otherwise inherit the session model). That
+is the hard boundary; this skill is what makes the pick *good* rather than just
+legal. Don't lean on the clamp — it can only make a call cheaper, never correct.
+
+Not covered by the hook: work you do yourself in the main thread. The cap
+governs subagent dispatch, not the session model.
